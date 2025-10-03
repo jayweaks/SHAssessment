@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DMEExtractor.UnitTests/DMEExtractor.UnitTests.csproj" />
+  <Project Path="DMEExtractor/DMEExtractor.csproj" />
+</Solution>
