@@ -1,6 +1,7 @@
 # DME Extractor
 
 A .NET console application that extracts structured medical equipment data from physician notes and sends it to an external API.
+NOTE: Uncomment the await _apiClient.SendEquipmentDataAsync(equipmentData) line in Services/DMEExtractorService.cs to call API.
 
 ## Development Environment
 
