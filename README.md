@@ -2,7 +2,7 @@
 
 A .NET console application that extracts structured medical equipment data from physician notes and sends it to an external API.
 
-NOTE: Uncomment the await _apiClient.SendEquipmentDataAsync(equipmentData) line in Services/DMEExtractorService.cs to call API.
+NOTE: Uncomment the await _apiClient.SendEquipmentDataAsync(equipmentData) line in Services/DMEExtractorService.cs to call API. This will fail with the given endpoint as it is not a valid endpoint.
 
 ## Development Environment
 
