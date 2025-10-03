@@ -54,7 +54,7 @@ data/
 
 1. **Clone and navigate to the project:**
    ```bash
-   cd SynapseAssessment
+   cd SHAssessment
    ```
 
 2. **Run with a specific file:**
