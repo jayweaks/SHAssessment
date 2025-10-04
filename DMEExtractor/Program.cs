@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using DMEExtractor.Configuration;
 using DMEExtractor.Interfaces;
 
@@ -20,6 +21,9 @@ try
     
     using var serviceProvider = services.BuildServiceProvider();
     
+    // Get logger for the entry point
+    var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+    
     // Get the main service and app settings
     var dmeExtractorService = serviceProvider.GetRequiredService<IDMEExtractorService>();
     var appSettings = serviceProvider.GetRequiredService<AppSettings>();
@@ -29,7 +33,7 @@ try
     if (args.Length > 0)
     {
         inputFiles = args;
-        Console.WriteLine($"Processing {inputFiles.Length} file(s) from command line arguments.");
+        logger.LogInformation("Processing {FileCount} file(s) from command line arguments", inputFiles.Length);
     }
     else
     {
@@ -42,25 +46,30 @@ try
             inputFiles = Directory.GetFiles(fullBasePath, "*.txt")
                 .Where(f => !string.IsNullOrWhiteSpace(f))
                 .ToArray();
-            Console.WriteLine($"Processing {inputFiles.Length} .txt file(s) from: {fullBasePath}");
+            logger.LogInformation("Processing {FileCount} .txt file(s) from: {DirectoryPath}", inputFiles.Length, fullBasePath);
         }
         else
         {
-            Console.WriteLine($"Base input directory not found: {fullBasePath}");
-            Console.WriteLine("No input files to process.");
+            logger.LogError("Base input directory not found: {DirectoryPath}", fullBasePath);
             return 1;
         }
     }
 
+    var result = 0;
     foreach (var inputFile in inputFiles.Where(f => !string.IsNullOrWhiteSpace(f)))
     {
-        var result = await dmeExtractorService.RunAsync(inputFile);
-        // Optionally handle result here (e.g., log, aggregate, etc.)
+        var fileResult = await dmeExtractorService.RunAsync(inputFile);
+        if (fileResult != 0)
+        {
+            result = fileResult;
+        }
     }
-    return 0;
+
+    return result;
 }
 catch (Exception ex)
 {
+    // Fallback to console if logging isn't available during startup
     Console.Error.WriteLine($"Application startup failed: {ex.Message}");
     return 1;
 }

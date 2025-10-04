@@ -5,6 +5,7 @@ using Moq;
 using DMEExtractor.Services;
 using DMEExtractor.Interfaces;
 using DMEExtractor.Models;
+using Microsoft.Extensions.Logging;
 
 namespace DMEExtractor.UnitTests.Services
 {
@@ -17,6 +18,7 @@ namespace DMEExtractor.UnitTests.Services
         private readonly Mock<IPhysicianNoteFileReader> _mockFileReader;
         private readonly Mock<IMedicalEquipmentProcessor> _mockProcessor;
         private readonly Mock<IApiClient> _mockApiClient;
+        private readonly Mock<ILogger<DMEExtractorService>> _mockLogger;
         private readonly DMEExtractorService _service;
 
         public DMEExtractorServiceTests()
@@ -24,11 +26,13 @@ namespace DMEExtractor.UnitTests.Services
             _mockFileReader = new Mock<IPhysicianNoteFileReader>();
             _mockProcessor = new Mock<IMedicalEquipmentProcessor>();
             _mockApiClient = new Mock<IApiClient>();
+            _mockLogger = new Mock<ILogger<DMEExtractorService>>();
             
             _service = new DMEExtractorService(
                 _mockFileReader.Object,
                 _mockProcessor.Object,
-                _mockApiClient.Object);
+                _mockApiClient.Object,
+                _mockLogger.Object);
         }
 
         [Fact]
@@ -118,7 +122,7 @@ namespace DMEExtractor.UnitTests.Services
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => 
-                new DMEExtractorService(null!, _mockProcessor.Object, _mockApiClient.Object));
+                new DMEExtractorService(null!, _mockProcessor.Object, _mockApiClient.Object, _mockLogger.Object));
         }
 
         [Fact]
@@ -126,7 +130,7 @@ namespace DMEExtractor.UnitTests.Services
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => 
-                new DMEExtractorService(_mockFileReader.Object, null!, _mockApiClient.Object));
+                new DMEExtractorService(_mockFileReader.Object, null!, _mockApiClient.Object, _mockLogger.Object));
         }
 
         [Fact]
@@ -134,7 +138,73 @@ namespace DMEExtractor.UnitTests.Services
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => 
-                new DMEExtractorService(_mockFileReader.Object, _mockProcessor.Object, null!));
+                new DMEExtractorService(_mockFileReader.Object, _mockProcessor.Object, null!, _mockLogger.Object));
+        }
+
+        [Fact]
+        public void Constructor_WithNullLogger_ShouldThrowArgumentNullException()
+        {
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => 
+                new DMEExtractorService(_mockFileReader.Object, _mockProcessor.Object, _mockApiClient.Object, null!));
+        }
+
+        [Fact]
+        public async Task RunAsync_ShouldLogInformationMessages()
+        {
+            // Arrange
+            var fileName = "test_note.txt";
+            var physicianNote = "Patient needs CPAP. Ordered by Dr. Test.";
+            var equipmentData = new MedicalEquipmentData { DeviceType = "CPAP", PatientName = "John Doe" };
+
+            _mockFileReader.Setup(x => x.ReadPhysicianNote(fileName))
+                          .Returns(physicianNote);
+            
+            _mockProcessor.Setup(x => x.ExtractEquipmentData(physicianNote))
+                         .Returns(equipmentData);
+
+            // Act
+            var result = await _service.RunAsync(fileName);
+
+            // Assert
+            Assert.Equal(0, result);
+            
+            // Verify logging calls
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Starting medical equipment extraction process")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.AtLeastOnce);
+        }
+
+        [Fact]
+        public async Task RunAsync_WithEmptyPhysicianNote_ShouldLogWarningAndReturnErrorCode()
+        {
+            // Arrange
+            var fileName = "empty_note.txt";
+            var emptyNote = "";
+
+            _mockFileReader.Setup(x => x.ReadPhysicianNote(fileName))
+                          .Returns(emptyNote);
+
+            // Act
+            var result = await _service.RunAsync(fileName);
+
+            // Assert
+            Assert.Equal(1, result);
+            
+            // Verify warning was logged
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Physician note is empty or null")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
         }
     }
 }
